@@ -1,0 +1,27 @@
+AgCheck - how to use
+====================
+
+AgCheck looks at the window you have open and tells you whether its text can be
+read by assistive technology. It never types, never clicks, and never records
+the actual words - only the shape of the text (letters and digits), which is
+safe to share.
+
+Steps
+-----
+
+1. Open the window you want to check. Click inside its main text area so you
+   can see a line of text there.
+
+2. Start AgCheck (double-click AgCheck.exe), then press "Check now".
+
+3. Press "Open result". A small text file opens with the answer.
+
+4. Send that text file back. That is all.
+
+Note
+----
+
+The first time you run it, Windows may say the publisher is unknown (this
+happens with any program that has not yet been signed). It is safe to run.
+
+Keep AgCheck.exe and WindowsAccessBridge-64.dll together in the same folder.

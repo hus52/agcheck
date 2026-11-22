@@ -1,0 +1,5 @@
+src/build/
+src/dist/
+*.exe
+agcheck-*.txt
+__pycache__/
