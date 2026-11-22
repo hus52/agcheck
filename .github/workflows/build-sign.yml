@@ -19,13 +19,11 @@ on:
   release:
     types: [published]
 
-permissions:
-  contents: write        # needed to attach the signed exe to the release
-  id-token: write        # SignPath verifies the build via GitHub OIDC
-
 jobs:
   build:
     runs-on: windows-latest
+    permissions:
+      contents: read
     outputs:
       artifact-id: ${{ steps.upload-unsigned.outputs.artifact-id }}
     steps:
@@ -59,9 +57,13 @@ jobs:
   sign:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write      # SignPath verifies the build via GitHub OIDC
+      contents: write      # attach the signed exe to the release
     steps:
       - name: Submit to SignPath
-        uses: signpath/github-action-submit-signing-request@v1
+        # Pinned to the reviewed commit for tag v3 (supply-chain safety).
+        uses: signpath/github-action-submit-signing-request@a2c5b60d9c75f073142b653c354b632eedce097b # v3
         with:
           api-token: '${{ secrets.SIGNPATH_API_TOKEN }}'
           organization-id: '${{ vars.SIGNPATH_ORGANIZATION_ID }}'
