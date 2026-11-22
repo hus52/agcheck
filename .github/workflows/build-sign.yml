@@ -1,0 +1,78 @@
+# Builds AgCheck.exe on GitHub's runners and gets it code-signed by SignPath.
+#
+# SignPath's free OSS program requires the build to happen in CI (so the signed
+# file's origin can be traced) - that is why this workflow exists.
+#
+# Before it can sign, set these in the repo (Settings -> Secrets and variables -> Actions):
+#   Secret   SIGNPATH_API_TOKEN              - the API token from your SignPath user settings
+#   Variable SIGNPATH_ORGANIZATION_ID        - your SignPath organization GUID
+#   Variable SIGNPATH_PROJECT_SLUG           - usually: agcheck
+#   Variable SIGNPATH_SIGNING_POLICY_SLUG    - test-signing at first, release-signing once approved
+#
+# Run it manually (Actions tab -> Build and sign -> Run workflow), or it runs
+# automatically when you publish a release and attaches the signed exe to it.
+
+name: Build and sign
+
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+
+permissions:
+  contents: write        # needed to attach the signed exe to the release
+  id-token: write        # SignPath verifies the build via GitHub OIDC
+
+jobs:
+  build:
+    runs-on: windows-latest
+    outputs:
+      artifact-id: ${{ steps.upload-unsigned.outputs.artifact-id }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install PyInstaller
+        run: python -m pip install pyinstaller
+
+      - name: Self-check
+        run: python src/agcheck.py --selftest
+
+      - name: Build exe
+        working-directory: src
+        run: >
+          python -m PyInstaller --onefile --windowed --name AgCheck
+          --distpath dist --workpath build --specpath build --noconfirm
+          --exclude-module numpy --exclude-module PIL --exclude-module pandas
+          agcheck.py
+
+      - name: Upload unsigned exe
+        id: upload-unsigned
+        uses: actions/upload-artifact@v4
+        with:
+          name: AgCheck-unsigned
+          path: src/dist/AgCheck.exe
+
+  sign:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Submit to SignPath
+        uses: signpath/github-action-submit-signing-request@v1
+        with:
+          api-token: '${{ secrets.SIGNPATH_API_TOKEN }}'
+          organization-id: '${{ vars.SIGNPATH_ORGANIZATION_ID }}'
+          project-slug: '${{ vars.SIGNPATH_PROJECT_SLUG }}'
+          signing-policy-slug: '${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}'
+          github-artifact-id: '${{ needs.build.outputs.artifact-id }}'
+          wait-for-completion: true
+          output-artifact-directory: 'signed'
+
+      - name: Attach signed exe to the release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.event.release.tag_name }}" signed/AgCheck.exe --clobber --repo "${{ github.repository }}"
